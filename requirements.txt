@@ -1,6 +1,6 @@
 pyrogram<=2.0.33
 tgcrypto<=1.2.3
-aiohttp<=3.8.5        # bump to latest compatible
+aiohttp<=3.8.5
 python-dotenv<=0.20.0
 motor
 aiofiles
@@ -8,4 +8,4 @@ dnspython
 apscheduler
 requests
 psutil==5.9.5
-pyromod==3.1.6        # use latest valid version
+pyromod==3.1.6
