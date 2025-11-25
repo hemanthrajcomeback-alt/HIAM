@@ -1,10 +1,14 @@
-# Use Python 3.11 slim for better compatibility
-FROM python:3.11-slim
+# -------------------------------
+# Stage 1: Build Stage
+# -------------------------------
+FROM python:3.11-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install required system packages
+# Prevent tzdata prompts
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc \
@@ -13,20 +17,40 @@ RUN apt-get update && \
         libffi-dev \
         tzdata \
         curl \
-        ntpdate \
-    && rm -rf /var/lib/apt/lists/*
+    && ln -fs /usr/share/zoneinfo/Asia/Kolkata /etc/localtime \
+    && dpkg-reconfigure --frontend noninteractive tzdata \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Sync time immediately
-RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
-    dpkg-reconfigure -f noninteractive tzdata && \
-    ntpdate pool.ntp.org
+# Copy requirements and install Python packages into /install
+COPY requirements.txt .
+RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
 
-# Copy requirements and install Python packages
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of your bot code
+# Copy the rest of the app
 COPY . .
 
-# Set default command
+# -------------------------------
+# Stage 2: Final Runtime Stage
+# -------------------------------
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy app code from builder
+COPY --from=builder /app /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install minimal runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata curl && \
+    ln -fs /usr/share/zoneinfo/Asia/Kolkata /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Default command
 CMD ["python3", "-m", "Adarsh"]
